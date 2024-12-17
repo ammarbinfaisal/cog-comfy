@@ -1,5 +1,17 @@
 [
   {
+    "repo": "https://github.com/sipherxyz/comfyui-art-venture",
+    "commit": "50abaac"
+  },
+  {
+    "repo": "https://github.com/haofanwang/ComfyUI-InstantStyle",
+    "commit": "98c543a"
+  },
+  {
+    "repo": "https://github.com/rgthree/rgthree-comfy",
+    "commit": "e6ae355"
+  },
+  {
     "repo": "https://github.com/cubiq/ComfyUI_IPAdapter_plus",
     "commit": "b188a6c"
   },

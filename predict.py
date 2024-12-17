@@ -1,145 +1,155 @@
 import os
-import shutil
-import tarfile
-import zipfile
 import mimetypes
-from PIL import Image
-from typing import List
+import json
+import shutil
+from typing import List, Optional
 from cog import BasePredictor, Input, Path
 from comfyui import ComfyUI
-from weights_downloader import WeightsDownloader
 from cog_model_helpers import optimise_images
-from config import config
+from cog_model_helpers import seed as seed_helper
 
-
-os.environ["DOWNLOAD_LATEST_WEIGHTS_MANIFEST"] = "true"
-mimetypes.add_type("image/webp", ".webp")
 OUTPUT_DIR = "/tmp/outputs"
 INPUT_DIR = "/tmp/inputs"
 COMFYUI_TEMP_OUTPUT_DIR = "ComfyUI/temp"
 ALL_DIRECTORIES = [OUTPUT_DIR, INPUT_DIR, COMFYUI_TEMP_OUTPUT_DIR]
 
-with open("examples/api_workflows/sd15_txt2img.json", "r") as file:
-    EXAMPLE_WORKFLOW_JSON = file.read()
-
+# Ensure proper MIME type handling
+mimetypes.add_type("image/webp", ".webp")
 
 class Predictor(BasePredictor):
-    def setup(self, weights: str):
-        if bool(weights):
-            self.handle_user_weights(weights)
-
+    def setup(self):
+        """Initialize ComfyUI server and download required model weights"""
         self.comfyUI = ComfyUI("127.0.0.1:8188")
         self.comfyUI.start_server(OUTPUT_DIR, INPUT_DIR)
 
-    def handle_user_weights(self, weights: str):
-        print(f"Downloading user weights from: {weights}")
-        WeightsDownloader.download("weights.tar", weights, config["USER_WEIGHTS_PATH"])
-        for item in os.listdir(config["USER_WEIGHTS_PATH"]):
-            source = os.path.join(config["USER_WEIGHTS_PATH"], item)
-            destination = os.path.join(config["MODELS_PATH"], item)
-            if os.path.isdir(source):
-                if not os.path.exists(destination):
-                    print(f"Moving {source} to {destination}")
-                    shutil.move(source, destination)
-                else:
-                    for root, _, files in os.walk(source):
-                        for file in files:
-                            if not os.path.exists(os.path.join(destination, file)):
-                                print(
-                                    f"Moving {os.path.join(root, file)} to {destination}"
-                                )
-                                shutil.move(os.path.join(root, file), destination)
-                            else:
-                                print(
-                                    f"Skipping {file} because it already exists in {destination}"
-                                )
+        # Load workflow to analyze required weights
+        workflow = self._load_workflow()
 
-    def handle_input_file(self, input_file: Path):
-        file_extension = self.get_file_extension(input_file)
+        # Required weights based on the workflow
+        required_weights = [
+            
+        ]
+        
+        self.comfyUI.handle_weights(workflow, weights_to_download=required_weights)
 
-        if file_extension == ".tar":
-            with tarfile.open(input_file, "r") as tar:
-                tar.extractall(INPUT_DIR)
-        elif file_extension == ".zip":
-            with zipfile.ZipFile(input_file, "r") as zip_ref:
-                zip_ref.extractall(INPUT_DIR)
-        elif file_extension in [".jpg", ".jpeg", ".png", ".webp"]:
-            shutil.copy(input_file, os.path.join(INPUT_DIR, f"input{file_extension}"))
-        else:
-            raise ValueError(f"Unsupported file type: {file_extension}")
+    def _load_workflow(self) -> dict:
+        """Load workflow from JSON file"""
+        try:
+            with open("workflow_api.json", "r") as file:
+                return json.load(file)
+        except FileNotFoundError:
+            raise RuntimeError("workflow_api.json not found")
+        except json.JSONDecodeError:
+            raise RuntimeError("Invalid JSON in workflow_api.json")
 
-        print("====================================")
-        print(f"Inputs uploaded to {INPUT_DIR}:")
-        self.comfyUI.get_files(INPUT_DIR)
-        print("====================================")
+    def _handle_input_file(self, input_file: Path, prefix: str) -> str:
+        """
+        Copy input file to input directory with preserved extension
+        Returns: filename in input directory
+        """
+        if not input_file.exists():
+            raise ValueError(f"Input file does not exist: {input_file}")
+            
+        extension = os.path.splitext(input_file.name)[1]
+        filename = f"{prefix}{extension}"
+        input_path = os.path.join(INPUT_DIR, filename)
+        
+        shutil.copy(input_file, input_path)
+        return filename
 
-    def get_file_extension(self, input_file: Path) -> str:
-        file_extension = os.path.splitext(input_file)[1].lower()
-        if not file_extension:
-            with open(input_file, "rb") as f:
-                file_signature = f.read(4)
-            if file_signature.startswith(b"\x1f\x8b"):  # gzip signature
-                file_extension = ".tar"
-            elif file_signature.startswith(b"PK"):  # zip signature
-                file_extension = ".zip"
-            else:
-                try:
-                    with Image.open(input_file) as img:
-                        file_extension = f".{img.format.lower()}"
-                        print(f"Determined file type: {file_extension}")
-                except Exception as e:
-                    raise ValueError(
-                        f"Unable to determine file type for: {input_file}, {e}"
-                    )
-        return file_extension
+    def _update_workflow(self, workflow: dict, **kwargs) -> None:
+        """Update workflow nodes based on input parameters"""
+        updates = {
+            "prompt": (["4", "inputs", "text"], kwargs.get("prompt")),
+            "negative_prompt": (["5", "inputs", "text"], kwargs.get("negative_prompt")),
+            "image_filename": (
+                [("242", "inputs", "image"), ("155", "inputs", "image")],
+                kwargs.get("image_filename")
+            ),
+            "image_2": (["155", "inputs", "image"], kwargs.get("image_filename")),
+            "seed": (["81", "inputs", "seed"], kwargs.get("seed"))
+        }
+
+        for key, (paths, value) in updates.items():
+            if value is not None:
+                if isinstance(paths[0], tuple):  # Multiple paths to update
+                    for path in paths:
+                        self._set_nested_value(workflow, path, value)
+                else:  # Single path
+                    self._set_nested_value(workflow, paths, value)
+
+    def _set_nested_value(self, obj: dict, path: List[str], value: any) -> None:
+        """Helper method to set nested dictionary value"""
+        for key in path[:-1]:
+            obj = obj[key]
+        obj[path[-1]] = value
 
     def predict(
         self,
-        workflow_json: str = Input(
-            description="Your ComfyUI workflow as JSON. You must use the API version of your workflow. Get it from ComfyUI using ‘Save (API format)’. Instructions here: https://github.com/fofr/cog-comfyui",
+        prompt: str = Input(
+            description="Main prompt describing what you want to see in the image",
             default="",
         ),
-        input_file: Path = Input(
-            description="Input image, tar or zip file. Read guidance on workflows and input files here: https://github.com/fofr/cog-comfyui. Alternatively, you can replace inputs with URLs in your JSON workflow and the model will download them.",
-            default=None,
+        negative_prompt: str = Input(
+            description="Things you do not want to see in your image",
+            default="cgi, render, blured, semi-realistic, digital, unrealistic, ugly, low-quality, bad quality",
         ),
-        return_temp_files: bool = Input(
-            description="Return any temporary files, such as preprocessed controlnet images. Useful for debugging.",
-            default=False,
+        image: Path = Input(
+            description="Input image to be processed",
+            default=None,
         ),
         output_format: str = optimise_images.predict_output_format(),
         output_quality: int = optimise_images.predict_output_quality(),
-        randomise_seeds: bool = Input(
-            description="Automatically randomise seeds (seed, noise_seed, rand_seed)",
-            default=True,
-        ),
-        force_reset_cache: bool = Input(
-            description="Force reset the ComfyUI cache before running the workflow. Useful for debugging.",
-            default=False,
-        ),
+        seed: int = seed_helper.predict_seed(),
     ) -> List[Path]:
-        """Run a single prediction on the model"""
-        self.comfyUI.cleanup(ALL_DIRECTORIES)
+        """Run prediction on the model"""
+        try:
+            if image is None:
+                raise ValueError("An input image is required for this workflow")
+                
+            # Add image format validation
+            valid_formats = ['.jpg', '.jpeg', '.png', '.webp']
+            if not any(str(image).lower().endswith(ext) for ext in valid_formats):
+                raise ValueError(f"Image must be one of these formats: {', '.join(valid_formats)}")
 
-        if input_file:
-            self.handle_input_file(input_file)
+            # Try to validate image dimensions
+            from PIL import Image
+            with Image.open(image) as img:
+                if img.mode not in ['RGB', 'RGBA']:
+                    img = img.convert('RGB')
 
-        wf = self.comfyUI.load_workflow(workflow_json or EXAMPLE_WORKFLOW_JSON)
+            # Clean up previous runs
+            self.comfyUI.cleanup(ALL_DIRECTORIES)
 
-        self.comfyUI.connect()
+            # Handle input image and seed
+            image_filename = self._handle_input_file(image, "image")
+            actual_seed = seed_helper.generate(seed)
 
-        if force_reset_cache or not randomise_seeds:
-            self.comfyUI.reset_execution_cache()
+            # Load and update workflow
+            workflow = self._load_workflow()
+            self._update_workflow(
+                workflow,
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                image_filename=image_filename,
+                seed=actual_seed,
+            )
 
-        if randomise_seeds:
-            self.comfyUI.randomise_seeds(wf)
+            # Execute workflow
+            self.comfyUI.connect()
+            wf = self.comfyUI.load_workflow(workflow)
+            self.comfyUI.run_workflow(wf)
 
-        self.comfyUI.run_workflow(wf)
+            # Get and optimize output files
+            output_files = self.comfyUI.get_files(OUTPUT_DIR)
+            if not output_files:
+                raise RuntimeError("No output files generated")
 
-        output_directories = [OUTPUT_DIR]
-        if return_temp_files:
-            output_directories.append(COMFYUI_TEMP_OUTPUT_DIR)
+            return optimise_images.optimise_image_files(
+                output_format,
+                output_quality,
+                output_files
+            )
 
-        return optimise_images.optimise_image_files(
-            output_format, output_quality, self.comfyUI.get_files(output_directories)
-        )
+        except Exception as e:
+            raise RuntimeError(f"Prediction failed: {str(e)}")

@@ -1,0 +1,253 @@
+{
+  "2": {
+    "inputs": {
+      "ckpt_name": "realvisxlV40_v40Bakedvae.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple"
+  },
+  "4": {
+    "inputs": {
+      "text": "professional photo of a modern exterior, villa modern exterior, grass landscape, modern minimalistic style, modern materials, grey panel walls, light wood integrations, minimalistic details, real estate photography, award winner, wide roof, big panoramic windows, beautiful nature outside, forest background, photorealistic exterior, minimalistic exterior, 30 mm\n",
+      "clip": [
+        "2",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "5": {
+    "inputs": {
+      "text": "cgi, render, blured, semi-realistic, digital, unrealistic, ugly, low-quality, bad quality",
+      "clip": [
+        "2",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "9": {
+    "inputs": {
+      "control_net_name": "controlnet-union-promax-sdxl-1.0.safetensors"
+    },
+    "class_type": "ControlNetLoader"
+  },
+  "10": {
+    "inputs": {
+      "strength": 0.8,
+      "start_percent": 0,
+      "end_percent": 1,
+      "positive": [
+        "4",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "control_net": [
+        "9",
+        0
+      ],
+      "image": [
+        "79",
+        0
+      ]
+    },
+    "class_type": "ControlNetApplyAdvanced"
+  },
+  "22": {
+    "inputs": {
+      "images": [
+        "79",
+        0
+      ]
+    },
+    "class_type": "PreviewImage"
+  },
+  "61": {
+    "inputs": {
+      "pixels": [
+        "155",
+        0
+      ],
+      "vae": [
+        "2",
+        2
+      ]
+    },
+    "class_type": "VAEEncode"
+  },
+  "79": {
+    "inputs": {
+      "preprocessor": "lineart",
+      "sd_version": "sdxl",
+      "resolution": 512,
+      "preprocessor_override": "None",
+      "image": [
+        "155",
+        0
+      ]
+    },
+    "class_type": "AV_ControlNetPreprocessor"
+  },
+  "81": {
+    "inputs": {
+      "seed": 250856344878976,
+      "steps": 25,
+      "cfg": 6,
+      "sampler_name": "dpmpp_sde",
+      "scheduler": "karras",
+      "denoise": 1,
+      "model": [
+        "241",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "10",
+        1
+      ],
+      "latent_image": [
+        "61",
+        0
+      ]
+    },
+    "class_type": "KSampler"
+  },
+  "82": {
+    "inputs": {
+      "samples": [
+        "81",
+        0
+      ],
+      "vae": [
+        "2",
+        2
+      ]
+    },
+    "class_type": "VAEDecode"
+  },
+  "88": {
+    "inputs": {
+      "samples": [
+        "61",
+        0
+      ],
+      "mask": [
+        "237",
+        0
+      ]
+    },
+    "class_type": "SetLatentNoiseMask"
+  },
+  "155": {
+    "inputs": {
+      "image": "clipspace/clipspace-mask-1293799.6000000006.png [input]",
+      "resize": true,
+      "width": 1024,
+      "height": 1024,
+      "repeat": 1,
+      "keep_proportion": true,
+      "divisible_by": 2,
+      "mask_channel": "grayscale",
+      "background_color": "",
+      "upload": "image"
+    },
+    "class_type": "LoadAndResizeImage"
+  },
+  "221": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "82",
+        0
+      ]
+    },
+    "class_type": "SaveImage"
+  },
+  "224": {
+    "inputs": {
+      "rgthree_comparer": {
+        "images": [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_hdqzp_00007_.png&type=temp&subfolder=&rand=0.6451205445207122"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_hdqzp_00008_.png&type=temp&subfolder=&rand=0.3390918117528017"
+          }
+        ]
+      },
+      "image_a": [
+        "155",
+        0
+      ],
+      "image_b": [
+        "82",
+        0
+      ]
+    },
+    "class_type": "Image Comparer (rgthree)"
+  },
+  "237": {
+    "inputs": {
+      "expand": 5,
+      "incremental_expandrate": 0,
+      "tapered_corners": true,
+      "flip_input": false,
+      "blur_radius": 12,
+      "lerp_alpha": 1,
+      "decay_factor": 1,
+      "fill_holes": false,
+      "mask": [
+        "155",
+        1
+      ]
+    },
+    "class_type": "GrowMaskWithBlur"
+  },
+  "240": {
+    "inputs": {
+      "preset": "STANDARD (medium strength)",
+      "model": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "IPAdapterUnifiedLoader"
+  },
+  "241": {
+    "inputs": {
+      "weight": 1,
+      "start_at": 0,
+      "end_at": 1,
+      "weight_type": "standard",
+      "model": [
+        "240",
+        0
+      ],
+      "ipadapter": [
+        "240",
+        1
+      ],
+      "image": [
+        "242",
+        0
+      ]
+    },
+    "class_type": "IPAdapter"
+  },
+  "242": {
+    "inputs": {
+      "image": "pasted/image (152).png",
+      "upload": "image"
+    },
+    "class_type": "LoadImage"
+  }
+}

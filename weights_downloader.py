@@ -62,6 +62,9 @@ class WeightsDownloader:
 
     @staticmethod
     def download(weight_str, url, dest):
+        if weight_str == "realvisxlV40_v40Bakedvae.safetensors":
+            return
+
         if "/" in weight_str:
             subfolder = weight_str.rsplit("/", 1)[0]
             dest = os.path.join(dest, subfolder)
