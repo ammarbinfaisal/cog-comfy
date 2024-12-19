@@ -96,7 +96,7 @@ class WeightsDownloader:
                 filename=filename,
                 repo_type="model",
                 local_dir=dest,
-                force_download=True  # Ensure we get a fresh download
+                force_download=False  # Ensure we get a fresh download
             )
             
             elapsed_time = time.time() - start
