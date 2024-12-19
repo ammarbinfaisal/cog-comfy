@@ -152,7 +152,7 @@
       "repeat": 1,
       "keep_proportion": true,
       "divisible_by": 2,
-      "mask_channel": "grayscale",
+      "mask_channel": "alpha",
       "background_color": "",
       "upload": "image"
     },

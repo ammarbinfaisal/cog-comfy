@@ -3,7 +3,6 @@ import time
 import os
 from weights_manifest import WeightsManifest
 
-
 class WeightsDownloader:
     supported_filetypes = [
         ".ckpt",
@@ -58,13 +57,63 @@ class WeightsDownloader:
         if self.check_if_file_exists(weight_str, dest):
             print(f"✅ {weight_str} exists in {dest}")
             return
-        WeightsDownloader.download(weight_str, url, dest)
+        
+        if weight_str == "realvisxlV40_v40Bakedvae.safetensors":
+            self.download_realvis_xl_v40(dest)
+        else:
+            self.download(weight_str, url, dest)
+
+    def download_realvis_xl_v40(self, dest):
+        """
+        Special handling for realvisxlV40_v40Bakedvae.safetensors from Hugging Face
+        using huggingface_hub library
+        """
+        from huggingface_hub import hf_hub_download
+        
+        weight_str = "realvisxlV40_v40Bakedvae.safetensors"
+        repo_id = "frankjoshua/realvisxlV40_v40Bakedvae"
+        filename = "realvisxlV40_v40Bakedvae.safetensors"
+        
+        print(f"⏳ Downloading {weight_str} from Hugging Face")
+        
+        try:
+            # Create destination directory if it doesn't exist
+            os.makedirs(dest, exist_ok=True)
+            
+            start = time.time()
+            
+            # Download using huggingface_hub
+            local_path = hf_hub_download(
+                repo_id=repo_id,
+                filename=filename,
+                repo_type="model",
+                cache_dir=dest,
+                resume_download=True,  # Resume interrupted downloads
+                token=os.getenv("HUGGING_FACE_HUB_TOKEN")  # Optional: for private repos
+            )
+            
+            # Move file to destination if it's in a cache subdirectory
+            final_path = os.path.join(dest, weight_str)
+            if local_path != final_path:
+                os.replace(local_path, final_path)
+            
+            elapsed_time = time.time() - start
+            
+            try:
+                file_size_bytes = os.path.getsize(final_path)
+                file_size_gigabytes = file_size_bytes / (1024 * 1024 * 1024)
+                print(
+                    f"✅ {weight_str} downloaded to {dest} in {elapsed_time:.2f}s, size: {file_size_gigabytes:.2f}GB"
+                )
+            except FileNotFoundError:
+                print(f"✅ {weight_str} downloaded to {dest} in {elapsed_time:.2f}s")
+                
+        except Exception as e:
+            print(f"❌ Failed to download {weight_str} from Hugging Face: {str(e)}")
+            raise
 
     @staticmethod
     def download(weight_str, url, dest):
-        if weight_str == "realvisxlV40_v40Bakedvae.safetensors":
-            return
-
         if "/" in weight_str:
             subfolder = weight_str.rsplit("/", 1)[0]
             dest = os.path.join(dest, subfolder)

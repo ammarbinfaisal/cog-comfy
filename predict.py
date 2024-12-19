@@ -27,7 +27,7 @@ class Predictor(BasePredictor):
 
         # Required weights based on the workflow
         required_weights = [
-            
+            "realvisxlV40_v40Bakedvae.safetensors"
         ]
         
         self.comfyUI.handle_weights(workflow, weights_to_download=required_weights)
