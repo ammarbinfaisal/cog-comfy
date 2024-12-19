@@ -66,7 +66,7 @@ class WeightsDownloader:
     def download_realvis_xl_v40(self, dest):
         """
         Special handling for realvisxlV40_v40Bakedvae.safetensors from Hugging Face
-        using huggingface_hub library with direct file handling
+        using huggingface_hub library
         """
         from huggingface_hub import hf_hub_download
         import shutil
@@ -75,60 +75,40 @@ class WeightsDownloader:
         repo_id = "frankjoshua/realvisxlV40_v40Bakedvae"
         filename = "realvisxlV40_v40Bakedvae.safetensors"
         
+        # Define paths
+        final_path = os.path.join(dest, weight_str)
+        
+        # Check if file already exists with correct size
+        if os.path.exists(final_path):
+            expected_size = 7_456_800_000  # ~6.94GB
+            if os.path.getsize(final_path) >= expected_size:
+                print(f"✅ {weight_str} already exists in {dest}")
+                return
+        
         print(f"⏳ Downloading {weight_str} from Hugging Face")
         
         try:
             start = time.time()
             
-            # Ensure we're using the absolute path to ComfyUI models directory
-            comfy_dir = os.path.join(os.path.dirname(dest), "ComfyUI", "models")
-            checkpoints_dir = os.path.join(comfy_dir, "checkpoints")
-            
-            # Create checkpoints directory if it doesn't exist
-            os.makedirs(checkpoints_dir, exist_ok=True)
-            
-            # Set up temporary download location
-            temp_dir = os.path.join(os.path.dirname(dest), "temp_download")
-            os.makedirs(temp_dir, exist_ok=True)
-            
-            # Download to temporary location
-            temp_path = hf_hub_download(
+            # Download directly to final location
+            downloaded_path = hf_hub_download(
                 repo_id=repo_id,
                 filename=filename,
                 repo_type="model",
-                local_dir=temp_dir,
-                local_dir_use_symlinks=False
+                local_dir=dest,
+                force_download=True  # Ensure we get a fresh download
             )
-            
-            # Define final destination path
-            final_path = os.path.join(checkpoints_dir, weight_str)
-            
-            print(f"Moving file from {temp_path} to {final_path}")
-            
-            # Remove existing file if it exists
-            if os.path.exists(final_path):
-                os.remove(final_path)
-            
-            # Copy file to final destination
-            shutil.copy2(temp_path, final_path)
-            
-            # Set proper permissions
-            os.chmod(final_path, 0o644)
-            
-            # Clean up temporary directory
-            shutil.rmtree(temp_dir)
             
             elapsed_time = time.time() - start
             
-            file_size_bytes = os.path.getsize(final_path)
+            file_size_bytes = os.path.getsize(downloaded_path)
             file_size_gigabytes = file_size_bytes / (1024 * 1024 * 1024)
             print(
-                f"✅ {weight_str} downloaded to {final_path} in {elapsed_time:.2f}s, size: {file_size_gigabytes:.2f}GB"
+                f"✅ {weight_str} downloaded to {dest} in {elapsed_time:.2f}s, size: {file_size_gigabytes:.2f}GB"
             )
                     
         except Exception as e:
             print(f"❌ Failed to download {weight_str} from Hugging Face: {str(e)}")
-            # Print the full traceback for debugging
             import traceback
             print(traceback.format_exc())
             raise
