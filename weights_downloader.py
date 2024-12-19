@@ -66,9 +66,10 @@ class WeightsDownloader:
     def download_realvis_xl_v40(self, dest):
         """
         Special handling for realvisxlV40_v40Bakedvae.safetensors from Hugging Face
-        using huggingface_hub library
+        using huggingface_hub library with improved file handling
         """
         from huggingface_hub import hf_hub_download
+        import shutil
         
         weight_str = "realvisxlV40_v40Bakedvae.safetensors"
         repo_id = "frankjoshua/realvisxlV40_v40Bakedvae"
@@ -77,8 +78,10 @@ class WeightsDownloader:
         print(f"⏳ Downloading {weight_str} from Hugging Face")
         
         try:
-            # Create destination directory if it doesn't exist
-            os.makedirs(dest, exist_ok=True)
+            # Ensure we're using the checkpoints directory
+            checkpoints_dir = os.path.join(dest, "checkpoints")
+            os.makedirs(checkpoints_dir, exist_ok=True)
+            dest = checkpoints_dir  # Update dest to point to checkpoints directory
             
             start = time.time()
             
@@ -88,26 +91,32 @@ class WeightsDownloader:
                 filename=filename,
                 repo_type="model",
                 cache_dir=dest,
-                resume_download=True,  # Resume interrupted downloads
-                token=os.getenv("HUGGING_FACE_HUB_TOKEN")  # Optional: for private repos
+                resume_download=True,
+                token=os.getenv("HUGGING_FACE_HUB_TOKEN")
             )
             
-            # Move file to destination if it's in a cache subdirectory
+            # Define the final destination path in checkpoints directory
             final_path = os.path.join(dest, weight_str)
-            if local_path != final_path:
-                os.replace(local_path, final_path)
+            print(f"Ensuring file will be placed at: {final_path}")
+            
+            # If the file exists at the destination, remove it first
+            if os.path.exists(final_path):
+                os.remove(final_path)
+            
+            # Copy the file instead of moving it
+            shutil.copy2(local_path, final_path)
+            
+            # Ensure proper permissions
+            os.chmod(final_path, 0o644)
             
             elapsed_time = time.time() - start
             
-            try:
-                file_size_bytes = os.path.getsize(final_path)
-                file_size_gigabytes = file_size_bytes / (1024 * 1024 * 1024)
-                print(
-                    f"✅ {weight_str} downloaded to {dest} in {elapsed_time:.2f}s, size: {file_size_gigabytes:.2f}GB"
-                )
-            except FileNotFoundError:
-                print(f"✅ {weight_str} downloaded to {dest} in {elapsed_time:.2f}s")
-                
+            file_size_bytes = os.path.getsize(final_path)
+            file_size_gigabytes = file_size_bytes / (1024 * 1024 * 1024)
+            print(
+                f"✅ {weight_str} downloaded to {dest} in {elapsed_time:.2f}s, size: {file_size_gigabytes:.2f}GB"
+            )
+                    
         except Exception as e:
             print(f"❌ Failed to download {weight_str} from Hugging Face: {str(e)}")
             raise
