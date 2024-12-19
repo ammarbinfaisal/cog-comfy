@@ -7,7 +7,6 @@ def main():
     
     # Setup the ComfyUI server and required models
     print("Setting up predictor...")
-    predictor.setup()
     
     # Prepare inputs
     input_image = Path("image.jpg")  # Replace with your image path

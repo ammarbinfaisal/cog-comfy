@@ -17,7 +17,7 @@ ALL_DIRECTORIES = [OUTPUT_DIR, INPUT_DIR, COMFYUI_TEMP_OUTPUT_DIR]
 mimetypes.add_type("image/webp", ".webp")
 
 class Predictor(BasePredictor):
-    def setup(self):
+    def __init__(self):
         """Initialize ComfyUI server and download required model weights"""
         self.comfyUI = ComfyUI("127.0.0.1:8188")
         self.comfyUI.start_server(OUTPUT_DIR, INPUT_DIR)
